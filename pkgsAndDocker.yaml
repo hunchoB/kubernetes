@@ -1,0 +1,76 @@
+---
+- name: Installing all nedded packages and Docker
+  hosts: all
+  any_errors_fatal: true
+  become: yes
+
+  tasks:
+  - name: All nodes is available
+    ping:
+
+  - name: Updating repo
+    apt: update_cache=yes force_apt_get=yes cache_valid_time=3600
+
+  - name: Installing packages
+    apt:
+      name: "{{ pkgs }}"
+      state: latest
+      update_cache: yes
+    vars:
+      pkgs:
+      - mc
+      - git
+      - bridge-utils
+      - net-tools
+      - python3
+      - nano
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - gnupg-agent
+
+  - name: Add keys for Docker
+    apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+  
+  - name: Adding apt repos for stable version Docker
+    apt_repository:
+      repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+      state: present
+
+  - name: Install Docker
+    apt:
+      name: "{{ pkgs }}"
+      state: present
+      update_cache: yes
+    vars:
+      pkgs:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+
+  - name: Download Docker-compose v2.1.1
+    get_url:
+      url: https://github.com/docker/compose/releases/download/v2.1.1/docker-compose-linux-x86_64
+      dest: ~/docker-compose
+      mode: '+x'
+
+  - name: Is Docker-compose existing in need directory?
+    stat: path=~/docker-compose
+    register: docker_compose
+
+  - name: Move docker-compose to /usr/local/bin/docker-compose
+    command: mv ~/docker-compose /usr/local/bin/docker-compose
+    when: docker_compose.stat.exists
+
+  - name: Start Docker service
+    command: systemctl restart docker
+
+  - name: Check default image Docker
+    command: docker run hello-world
+    register: defContainer
+
+  - debug:
+      var: defContainer
